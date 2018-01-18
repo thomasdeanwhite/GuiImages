@@ -11,11 +11,14 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException
 import config
-import PyMySQL
+import pymysql
+
+testing_percent = 0.02
+validation_percent = 0.005
 
 def connect_to_db():
-    db = PyMySQL.connect(config.db.location, config.db.user, config.db.password, config.db.db)
-
+    db = pymysql.connect(config.db['location'], config.db['user'], config.db['password'], config.db['db'])
+    return db
 
 def init_driver():
     driver = webdriver.Firefox()
@@ -37,8 +40,66 @@ def lookup(driver, query):
         print("Box or Button not found in google.com")
 
 
-def element_to_string(location, size, style_class):
-    return "<div class='overlay " + style_class + "' style='left: " + str(location['x']) + "; top: " + str(location['y']) + "; width: " + str(size['width']) + "px; height: " + str(size['height']) + "px;'>&nbsp;</div>"
+def dims_to_relative(body_width, body_height, location, size):
+    return {
+        'xmin':(location['x']/body_width),
+        'xmax':((location['x']+size['width'])/body_width),
+        'ymin':(location['y']/body_height),
+        'ymax':((location['y']+size['height'])/body_height),
+    }
+
+
+def element_to_string(location, size, body_width, body_height, style_class):
+    label_info = dims_to_relative(body_width, body_height, location, size)
+    return {
+        'contents':"<div class='overlay " + style_class + "' style='left: " + str(int(label_info['xmin']*body_width)) + "; top: " + str(int(label_info['ymin']*body_height)) + "; width: " + str(int((label_info['xmax']-label_info['xmin'])*body_width-4)) + "px; height: " + str(int((label_info['ymax']-label_info['ymin'])*body_height-4)) + "px;'>&nbsp;</div>",
+        'dims':label_info,
+    }
+
+def get_label(element, tag, body_width, body_height):
+    location = element.location
+    size = element.size
+    label = element_to_string(location, size, body_width, body_height, tag)
+    return label
+
+def insert_label(cursor, db, image_id, dims, label_type):
+    existing = None
+
+    sql = "SELECT * FROM label_types \
+               WHERE LabelName = '%s'" % (label_type)
+
+    try:
+        # Execute the SQL command
+        cursor.execute(sql)
+        # Fetch all the rows in a list of lists.
+        results = cursor.fetchall()
+        for row in results:
+            existing = row
+    except:
+        print ("Error: unable to fetch data")
+
+    label_id = -1
+    if existing == None:
+        insert_label = "INSERT INTO label_types(LabelName) VALUES ('%s')" % (label_type)
+
+        try:
+            cursor.execute(insert_label)
+            db.commit()
+        except pymysql.InternalError as e:
+            print(e)
+            db.rollback()
+
+        label_id = db.insert_id()
+    else:
+        label_id = existing[0]
+
+    insert_label = "INSERT INTO labels(Source, Confidence, ImageId, XMin, XMax, YMin, YMax, LabelType) VALUES ('%s', '%f', '%d', '%f', '%f', '%f', '%f', '%d')" % ("unverified", 0.0, image_id, dims['xmin'], dims['xmax'], dims['ymin'], dims['ymax'], label_id)
+    try:
+        cursor.execute(insert_label)
+        db.commit()
+    except pymysql.InternalError as e:
+        print(e)
+        db.rollback()
 
 
 class StringGenerator(object):
@@ -48,48 +109,97 @@ class StringGenerator(object):
 
     @cherrypy.expose
     def crawl(self, url="www.google.com"):
-        driver = init_driver()
-        driver.get("http://" + url)
-        #lookup(driver, "Selenium")
+        db = connect_to_db()
         file_name = url.replace(".", "_")
         file_name = file_name.replace("/", "-")
+        file_name = file_name.replace("\"", "&quote")
+        file_name = file_name.replace("'", "&apos")
         file = "images/" + file_name + ".png"
 
-        links = driver.find_elements_by_tag_name("a")
-        buttons = driver.find_elements_by_tag_name("button")
-        text_fields = driver.find_elements_by_tag_name("input")
+        cursor = db.cursor()
 
+        sql = "SELECT * FROM images \
+               WHERE File = '%s'" % (file)
+
+        existing = None
+        try:
+            # Execute the SQL command
+            cursor.execute(sql)
+            # Fetch all the rows in a list of lists.
+            results = cursor.fetchall()
+            for row in results:
+                existing = row
+        except pymysql.InternalError as e:
+            print (e)
         webpage = "<html><head><link rel='stylesheet' href='/static/css/style.css'></head><body><img src='static/" + file + "' />"
+        if existing == None:
+            driver = init_driver()
+            driver.get("http://" + url)
 
-        for text_field in text_fields:
-            field_type = text_field.get_property("type")
-            if field_type == "hidden":
-                continue
+            dataset = "train"
+            random_num = random.random()
+            if random_num < validation_percent: # this gets assigned to validation
+                dataset = "validate"
+            elif random_num < validation_percent + testing_percent: #assigned to training
+                dataset = "test"
 
-            if field_type == "text" or field_type == "password" or field_type == "email":
-                location = text_field.location
-                size = text_field.size
-                webpage = webpage + element_to_string(location, size, "text_field")
-            else:
-                print(field_type)
-                buttons.append(text_field)
+            insert_img = "INSERT INTO images(Subset, File) VALUES ('%s', '%s')" % (dataset, file)
 
-        for link in links:
-            location = link.location
-            size = link.size
-            webpage = webpage + element_to_string(location, size, "link")
+            try:
+                cursor.execute(insert_img)
+                db.commit()
+            except pymysql.InternalError as e:
+                print(e)
+                db.rollback()
 
-        for button in buttons:
-            location = button.location
-            size = button.size
-            webpage = webpage + element_to_string(location, size, "button")
+            image_id = db.insert_id()
 
-        webpage = webpage + "<p>" + str(len(links)) + " Hyperlinks</p>"
-        webpage = webpage + "<p>" + str(len(buttons)) + " Buttons</p>"
-        webpage = webpage + "<p>" + str(len(text_fields)) + " Text Fields</p>"
+            body = driver.find_element_by_tag_name("body")
 
-        driver.save_screenshot("public/" + file)
-        driver.quit()
+            body_width=body.size['width']
+            body_height=body.size['height']
+
+            if body_width == 0:
+                #body = driver.find_element_by_tag_name("html")
+                body_width=driver.execute_script("return document.documentElement.clientWidth")
+
+            if body_height == 0:
+                #body = driver.find_element_by_tag_name("html")
+                body_height=driver.execute_script("return document.documentElement.clientHeight")
+
+            links = driver.find_elements_by_tag_name("a")
+            buttons = driver.find_elements_by_tag_name("button")
+            text_fields = driver.find_elements_by_tag_name("input")
+
+
+
+            for text_field in text_fields:
+                field_type = text_field.get_property("type")
+                if field_type == "hidden":
+                    continue
+
+                if field_type == "text" or field_type == "password" or field_type == "email":
+                    label = get_label(text_field, "text_field", body_width, body_height)
+                    webpage = webpage + label['contents']
+                    insert_label(cursor, db, image_id, label['dims'], 'text_field')
+                else:
+                    buttons.append(text_field)
+
+            for link in links:
+                label = get_label(link, "link", body_width, body_height)
+                webpage = webpage + label['contents']
+                insert_label(cursor, db, image_id, label['dims'], 'hyperlink')
+
+            for button in buttons:
+                label = get_label(button, "button", body_width, body_height)
+                webpage = webpage + label['contents']
+                insert_label(cursor, db, image_id, label['dims'], 'button')
+
+            driver.save_screenshot("public/" + file)
+            driver.quit()
+        else:
+            #Do stuff when image already exists (validate an unvalidated single box?)
+            webpage = webpage + "<h1>This image exists</h1>"
         webpage = webpage + "</body></html>"
         return webpage
 

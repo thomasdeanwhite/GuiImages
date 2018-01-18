@@ -1,8 +1,10 @@
-*.png
+/*.png
 */*.png
 __*
 corpus
-*.log
+/*.log
 *.iml
 .idea
 *.*~
+config.py
+public/images/*
