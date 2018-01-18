@@ -1,0 +1,28 @@
+body {
+    background-color: #FFFFFF;
+    margin: 0px;
+    padding: 0px;
+}
+
+.overlay {
+    border: 4px solid;
+    position: absolute;
+    z-index: 1000;
+    margin-left: -2px;
+}
+
+.button {
+    border-color: #FF0000;
+}
+
+.link {
+    border-color: #0000FF;
+}
+
+.text_field{
+    border-color: #00FF00;
+}
+
+#the-string {
+    display: none;
+}

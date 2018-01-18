@@ -1,0 +1,8 @@
+*.png
+*/*.png
+__*
+corpus
+*.log
+*.iml
+.idea
+*.*~
