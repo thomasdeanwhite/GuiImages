@@ -185,7 +185,7 @@ class StringGenerator(object):
                 print(e)
                 db.rollback()
 
-            image_id = db.insert_id()
+            image_id = cursor.lastrowid
 
             links = driver.find_elements_by_tag_name("a")
             buttons = driver.find_elements_by_tag_name("button")
