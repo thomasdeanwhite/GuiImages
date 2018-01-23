@@ -42,20 +42,15 @@ def lookup(driver, query):
 
 def dims_to_relative(body_width, body_height, location, size):
     return {
-        'xmin':max((location['x']/body_width), -0.1),
-        'xmax':min(((location['x']+size['width'])/body_width), 1.1),
-        'ymin':max((location['y']/body_height), -0.1),
-        'ymax':min(((location['y']+size['height'])/body_height), 1.1),
+        'xmin':(location['x']/body_width),
+        'xmax':((location['x']+size['width'])/body_width),
+        'ymin':(location['y']/body_height),
+        'ymax':((location['y']+size['height'])/body_height),
     }
 
 
 def element_to_string(location, size, body_width, body_height, style_class):
     label_info = dims_to_relative(body_width, body_height, location, size)
-
-    # filter elements not on the screen:
-    if label_info['xmin'] > 1 or label_info['ymin'] > 1 or label_info['xmax'] < 0 or label_info['ymax'] < 0:
-        return None
-
     return {
         'contents':"<div class='overlay " + style_class + "' style='left: " + str(int(label_info['xmin']*body_width)) + "; top: " + str(int(label_info['ymin']*body_height)) + "; width: " + str(int((label_info['xmax']-label_info['xmin'])*body_width-4)) + "px; height: " + str(int((label_info['ymax']-label_info['ymin'])*body_height-4)) + "px;'>&nbsp;</div>",
         'dims':label_info,
@@ -98,15 +93,7 @@ def insert_label(cursor, db, image_id, dims, label_type):
     else:
         label_id = existing[0]
 
-    truncated = 0
-    if dims['xmin'] < 0 or dims['xmax'] > 1 or dims['ymin'] < 0 or dims['ymax'] > 1:
-        truncated = 1
-        dims['xmin'] = max(0, dims['xmin'])
-        dims['xmax'] = min(1, dims['xmax'])
-        dims['ymin'] = max(0, dims['ymin'])
-        dims['ymax'] = min(1, dims['ymax'])
-
-    insert_label = "INSERT INTO labels(Source, Confidence, ImageId, XMin, XMax, YMin, YMax, IsTruncated, LabelType) VALUES ('%s', '%f', '%d', '%f', '%f', '%f', '%f', '%d', '%d')" % ("unverified", 0.0, image_id, dims['xmin'], dims['xmax'], dims['ymin'], dims['ymax'], truncated, label_id)
+    insert_label = "INSERT INTO labels(Source, Confidence, ImageId, XMin, XMax, YMin, YMax, LabelType) VALUES ('%s', '%f', '%d', '%f', '%f', '%f', '%f', '%d')" % ("unverified", 0.0, image_id, dims['xmin'], dims['xmax'], dims['ymin'], dims['ymax'], label_id)
     try:
         cursor.execute(insert_label)
         db.commit()
@@ -156,27 +143,7 @@ class StringGenerator(object):
             elif random_num < validation_percent + testing_percent: #assigned to training
                 dataset = "test"
 
-            body = driver.find_element_by_tag_name("body")
-
-            body_width=body.size['width']
-            body_height=body.size['height']
-
-            client_width=driver.execute_script("return document.documentElement.clientWidth")
-
-            if body_width <= 0:
-                body_width = client_width
-            elif client_width > 0:
-                body_width = min(client_width, body_width)
-
-            client_height=driver.execute_script("return document.documentElement.clientHeight")
-
-            if body_height <= 0:
-                body_height = client_height
-            elif client_height > 0:
-                body_height = min(client_height, body_height)
-
-            insert_img = "INSERT INTO images(Subset, File, Width, Height) VALUES ('%s', '%s', '%d', '%d')" % (dataset, file,
-                                                                                                              body_width, body_height)
+            insert_img = "INSERT INTO images(Subset, File) VALUES ('%s', '%s')" % (dataset, file)
 
             try:
                 cursor.execute(insert_img)
@@ -187,6 +154,19 @@ class StringGenerator(object):
 
             image_id = db.insert_id()
 
+            body = driver.find_element_by_tag_name("body")
+
+            body_width=body.size['width']
+            body_height=body.size['height']
+
+            if body_width == 0:
+                #body = driver.find_element_by_tag_name("html")
+                body_width=driver.execute_script("return document.documentElement.clientWidth")
+
+            if body_height == 0:
+                #body = driver.find_element_by_tag_name("html")
+                body_height=driver.execute_script("return document.documentElement.clientHeight")
+
             links = driver.find_elements_by_tag_name("a")
             buttons = driver.find_elements_by_tag_name("button")
             text_fields = driver.find_elements_by_tag_name("input")
@@ -194,35 +174,24 @@ class StringGenerator(object):
 
 
             for text_field in text_fields:
-
                 field_type = text_field.get_property("type")
-                if field_type == "hidden" or not text_field.is_displayed():
+                if field_type == "hidden":
                     continue
 
                 if field_type == "text" or field_type == "password" or field_type == "email":
                     label = get_label(text_field, "text_field", body_width, body_height)
-                    if label == None:
-                        continue
                     webpage = webpage + label['contents']
                     insert_label(cursor, db, image_id, label['dims'], 'text_field')
                 else:
                     buttons.append(text_field)
 
             for link in links:
-                if not link.is_displayed():
-                    continue
                 label = get_label(link, "link", body_width, body_height)
-                if label == None:
-                    continue
                 webpage = webpage + label['contents']
                 insert_label(cursor, db, image_id, label['dims'], 'hyperlink')
 
             for button in buttons:
-                if not button.is_displayed():
-                    continue
                 label = get_label(button, "button", body_width, body_height)
-                if label == None:
-                    continue
                 webpage = webpage + label['contents']
                 insert_label(cursor, db, image_id, label['dims'], 'button')
 
