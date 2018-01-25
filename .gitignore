@@ -8,3 +8,6 @@ corpus
 *.*~
 config.py
 public/images/*
+public/labels/*
+public/*.txt
+public/*.names

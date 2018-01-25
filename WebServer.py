@@ -13,8 +13,8 @@ from selenium.common.exceptions import TimeoutException
 import config
 import pymysql
 
-testing_percent = 0.02
-validation_percent = 0.005
+testing_percent = 0.01
+validation_percent = 0.025
 
 def connect_to_db():
     db = pymysql.connect(config.db['location'], config.db['user'], config.db['password'], config.db['db'])
@@ -94,7 +94,7 @@ def insert_label(cursor, db, image_id, dims, label_type):
             print(e)
             db.rollback()
 
-        label_id = db.insert_id()
+        label_id = cursor.lastrowid
     else:
         label_id = existing[0]
 
@@ -123,16 +123,17 @@ class StringGenerator(object):
     @cherrypy.expose
     def crawl(self, url="www.google.com"):
         db = connect_to_db()
-        file_name = url.replace(".", "_")
+        file_name = url.replace("..", "__")
         file_name = file_name.replace("/", "-")
         file_name = file_name.replace("\"", "&quote")
         file_name = file_name.replace("'", "&apos")
-        file = "images/" + file_name + ".png"
 
         cursor = db.cursor()
 
         sql = "SELECT * FROM images \
-               WHERE File = '%s'" % (file)
+               WHERE Source = '%s'" % (file_name)
+
+        webpage = "<html><head><link rel='stylesheet' href='/static/css/style.css'></head><body>"
 
         existing = None
         try:
@@ -144,7 +145,6 @@ class StringGenerator(object):
                 existing = row
         except pymysql.InternalError as e:
             print (e)
-        webpage = "<html><head><link rel='stylesheet' href='/static/css/style.css'></head><body><img src='static/" + file + "' />"
         if existing == None:
             driver = init_driver()
             driver.get("http://" + url)
@@ -175,8 +175,8 @@ class StringGenerator(object):
             elif client_height > 0:
                 body_height = min(client_height, body_height)
 
-            insert_img = "INSERT INTO images(Subset, File, Width, Height) VALUES ('%s', '%s', '%d', '%d')" % (dataset, file,
-                                                                                                              body_width, body_height)
+            insert_img = "INSERT INTO images(Subset, File, Source, Width, Height) VALUES ('%s', '%s', '%s', '%d', '%d')" % \
+                         (dataset, file_name, file_name, body_width, body_height)
 
             try:
                 cursor.execute(insert_img)
@@ -186,6 +186,18 @@ class StringGenerator(object):
                 db.rollback()
 
             image_id = cursor.lastrowid
+
+            file = 'images/' + str(image_id) + '.png'
+
+            update_img = "UPDATE images SET File='%s' WHERE ImageId='%d'" % (file,
+                                                                             image_id)
+            webpage = webpage + "<img src='static/" + file + "' />"
+            try:
+                cursor.execute(update_img)
+                db.commit()
+            except pymysql.InternalError as e:
+                print(e)
+                db.rollback()
 
             links = driver.find_elements_by_tag_name("a")
             buttons = driver.find_elements_by_tag_name("button")
