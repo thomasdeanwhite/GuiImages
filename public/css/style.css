@@ -15,12 +15,34 @@ body {
     border-color: #FF0000;
 }
 
-.link {
+.hyperlink {
     border-color: #0000FF;
 }
 
 .text_field{
     border-color: #00FF00;
+}
+
+.label {
+    margin-top: -30px;
+    margin-left: -5px;
+    color: white;
+    position: absolute;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+
+.button .button {
+    background-color: #FF0000;
+}
+
+.hyperlink .hyperlink {
+    background-color: #0000FF;
+}
+
+.text_field .text_field {
+    background-color: #00FF00;
 }
 
 #the-string {

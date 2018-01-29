@@ -13,7 +13,7 @@ from selenium.common.exceptions import TimeoutException
 import config
 import pymysql
 
-testing_percent = 0.01
+testing_percent = 0.05
 validation_percent = 0.025
 
 def connect_to_db():
@@ -57,9 +57,12 @@ def element_to_string(location, size, body_width, body_height, style_class):
         return None
 
     return {
-        'contents':"<div class='overlay " + style_class + "' style='left: " + str(int(label_info['xmin']*body_width)) + "; top: " + str(int(label_info['ymin']*body_height)) + "; width: " + str(int((label_info['xmax']-label_info['xmin'])*body_width-4)) + "px; height: " + str(int((label_info['ymax']-label_info['ymin'])*body_height-4)) + "px;'>&nbsp;</div>",
+        'contents':"<div class='overlay " + style_class + "' style='left: " + str(int(label_info['xmin']*body_width)) + "; top: " + str(int(label_info['ymin']*body_height)) + "; width: " + str(int((label_info['xmax']-label_info['xmin'])*body_width-4)) + "px; height: " + str(int((label_info['ymax']-label_info['ymin'])*body_height-4)) + "px;'><span class='label " + style_class + "'>" + style_class + "</span>&nbsp;</div>",
         'dims':label_info,
     }
+
+def label_to_string(label, type, body_width, body_height):
+    return "<div class='overlay " + type + "' style='left: " + str(int((label[1]-(label[3]/2))*body_width)) + "; top: " + str(int((label[2]-(label[4]/2))*body_height)) + "; width: " + str(int((label[3])*body_width-4)) + "px; height: " + str(int((label[4])*body_height-4)) + "px;'><span class='label " + type + "'>" + type + "</span>&nbsp;</div>"
 
 def get_label(element, tag, body_width, body_height):
     location = element.location
@@ -113,6 +116,13 @@ def insert_label(cursor, db, image_id, dims, label_type):
     except pymysql.InternalError as e:
         print(e)
         db.rollback()
+
+def convert_label(label):
+    return [int(label[4]),
+            (label[0]+label[1])/2,
+            (label[2] + label[3])/2,
+            label[1]-label[0],
+            label[3]-label[2]]
 
 
 class StringGenerator(object):
@@ -202,8 +212,16 @@ class StringGenerator(object):
             links = driver.find_elements_by_tag_name("a")
             buttons = driver.find_elements_by_tag_name("button")
             text_fields = driver.find_elements_by_tag_name("input")
+            text_areas = driver.find_elements_by_tag_name("textarea")
 
 
+
+            for text_area in text_areas:
+                label = get_label(text_area, "text_field", body_width, body_height)
+                if label == None:
+                    continue
+                webpage = webpage + label['contents']
+                insert_label(cursor, db, image_id, label['dims'], 'text_field')
 
             for text_field in text_fields:
 
@@ -223,7 +241,7 @@ class StringGenerator(object):
             for link in links:
                 if not link.is_displayed():
                     continue
-                label = get_label(link, "link", body_width, body_height)
+                label = get_label(link, "hyperlink", body_width, body_height)
                 if label == None:
                     continue
                 webpage = webpage + label['contents']
@@ -242,7 +260,41 @@ class StringGenerator(object):
             driver.quit()
         else:
             #Do stuff when image already exists (validate an unvalidated single box?)
-            webpage = webpage + "<h1>This image exists</h1>"
+            webpage = webpage + "<img src='static/" + existing[2] + "' />"
+
+            body_width = int(existing[3])
+            body_height = int(existing[4])
+
+
+            sql = "SELECT LabelTypeId, LabelName FROM label_types ORDER BY LabelTypeId" # this needs to only use verified labels when we have more data
+
+            label_names = []
+
+            try:
+                # Execute the SQL command
+                cursor.execute(sql)
+                # Fetch all the rows in a list of lists.
+                results = cursor.fetchall()
+                for row in results:
+                    label_names.append(row[1])
+            except pymysql.InternalError as e:
+                print (e)
+
+            sql = "SELECT XMin, XMax, YMin, YMax, LabelType, ImageId, IsTruncated FROM labels WHERE ImageId='%d'" % (existing[0])
+
+
+
+            try:
+                # Execute the SQL command
+                cursor.execute(sql)
+                # Fetch all the rows in a list of lists.
+                results = cursor.fetchall()
+                for row in results:
+                    original = row
+                    converted = convert_label(original)
+                    webpage = webpage + label_to_string(converted, label_names[row[4]-1], body_width, body_height)
+            except pymysql.InternalError as e:
+                print (e)
         webpage = webpage + "</body></html>"
         return webpage
 

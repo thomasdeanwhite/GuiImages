@@ -31,7 +31,7 @@ def load_sql_data():
     db = connect_to_db()
 
     cursor = db.cursor()
-    sql = "SELECT XMin, XMax, YMin, YMax, LabelType, ImageId, IsTruncated FROM labels" # this needs to only use verified labels when we have more data
+    sql = "SELECT XMin, XMax, YMin, YMax, LabelType, l.ImageId, IsTruncated FROM labels as l LEFT JOIN images AS i ON i.ImageId = l.ImageId WHERE i.Subset='train';" # this needs to only use verified labels when we have more data
 
     labels = []
     image_labels = {}
@@ -44,6 +44,10 @@ def load_sql_data():
         for row in results:
             width = row[1] - row[0]
             height = row[3] - row[2]
+
+            if width == 0 or height == 0:
+                continue
+
             image_id = str(row[5])
             if not image_id in image_labels:
                 image_labels[image_id] = []
@@ -71,8 +75,30 @@ def gen_anchors():#k-means to generate bounding boxes
 
     centroids = []
 
-    for i in range(n_anchors):
-        centroids.append(random.sample(list(labels), 1)[0])
+    n_samples = 50
+
+    centroids.append(random.sample(list(labels), 1)[0])
+
+    while len(centroids) < n_anchors:
+        distances = []
+        for i in range(len(labels)):
+            distances.append(0.0)
+            for j in centroids:
+                distance = iou(labels[i], j)
+                if distance > distances[i]:
+                    distances[i] = distance
+
+        furthest = 0
+
+        for i in range(len(labels)):
+            if distances[i] < distances[furthest]:
+                furthest = i
+
+        centroids.append(labels[furthest])
+
+
+
+
 
     centroids = np.array(centroids)
 
@@ -86,7 +112,8 @@ def gen_anchors():#k-means to generate bounding boxes
             min_distance = 0
             cluster = 0
             for i in range(len(centroids)):
-                distance = iou(label, centroids[i])
+                centroid = centroids[i]
+                distance = iou(label, centroid)
                 if distance > min_distance:
                     min_distance = distance
                     cluster = i
@@ -136,6 +163,26 @@ if __name__ == '__main__':
     anchor_string = ""
 
     for anchor in anchors:
-        anchor_string = anchor_string + str(round(anchor[0], 4)) + ',' + str(round(anchor[1], 4)) + ",  "
+        anchor_string = anchor_string + str(round(anchor[0]*13, 4)) + ',' + str(round(anchor[1]*13, 4)) + ",  "
 
     print(anchor_string)
+
+    fig1 = plt.figure()
+    ax1 = fig1.add_subplot(111, aspect='equal')
+
+    for anchor in anchors:
+        shifted = expand_anchor(anchor, 0, 0)
+        ax1.add_patch(
+            patches.Rectangle(
+                (shifted[0], shifted[2]),
+                shifted[1]-shifted[0], shifted[3]-shifted[2],
+                fill=False
+            )
+        )
+
+    plt.axis('off')
+    ax1.relim()
+    ax1.autoscale_view(True, True, True)
+    #plt.draw()
+    #plt.show()
+    fig1.savefig('anchors.png', dpi=90, bbox_inches='tight')

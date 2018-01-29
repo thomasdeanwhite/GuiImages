@@ -46,6 +46,8 @@ def load_sql_data():
         for row in results:
             width = row[1] - row[0]
             height = row[3] - row[2]
+            if width == 0 or height == 0:
+                continue
             image_id = str(row[5])
             if not image_id in image_labels:
                 image_labels[image_id] = []
@@ -131,4 +133,7 @@ if __name__ == '__main__':
 
     for image in data['image_labels']:
         if os.path.isfile('public/'+images[image][2]):
-            write_csv(image, images[image][1], convert_labels(data['image_labels'][image]))
+            if len(data['image_labels'][image]) > 0:
+                write_csv(image, images[image][1], convert_labels(data['image_labels'][image]))
+            else:
+                print("Removed". images[image][2], "from dataset (zero labels)")
