@@ -31,7 +31,7 @@ def load_sql_data():
     db = connect_to_db()
 
     cursor = db.cursor()
-    sql = "SELECT XMin, XMax, YMin, YMax, LabelType, l.ImageId, IsTruncated FROM labels as l LEFT JOIN images AS i ON i.ImageId = l.ImageId WHERE i.Subset='train';" # this needs to only use verified labels when we have more data
+    sql = "SELECT XMin, XMax, YMin, YMax, LabelType, l.ImageId, IsTruncated FROM labels as l LEFT JOIN images AS i ON i.ImageId = l.ImageId LEFT JOIN label_types AS lt ON LabelTypeId = LabelType WHERE i.Subset='train' AND LabelName!='hyperlink';" # this needs to only use verified labels when we have more data
 
     labels = []
     image_labels = {}
@@ -42,10 +42,19 @@ def load_sql_data():
         # Fetch all the rows in a list of lists.
         results = cursor.fetchall()
         for row in results:
-            width = row[1] - row[0]
-            height = row[3] - row[2]
 
-            if width == 0 or height == 0:
+            row1 = row[1]
+            row3 = row[3]
+
+            if row[1] > 1.1:
+                row1 = 1.1
+            if row[3] > 1.1:
+                row3 = 1.1
+
+            width = row1 - row[0]
+            height = row3 - row[2]
+
+            if width <= 0 or height <= 0 or row[0] > 1 or row[2] > 1:
                 continue
 
             image_id = str(row[5])
@@ -75,7 +84,7 @@ def gen_anchors():#k-means to generate bounding boxes
 
     centroids = []
 
-    n_samples = 50
+    n_samples = 300
 
     centroids.append(random.sample(list(labels), 1)[0])
 

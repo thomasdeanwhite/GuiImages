@@ -42,10 +42,10 @@ def lookup(driver, query):
 
 def dims_to_relative(body_width, body_height, location, size):
     return {
-        'xmin':max((location['x']/body_width), -0.1),
-        'xmax':min(((location['x']+size['width'])/body_width), 1.1),
-        'ymin':max((location['y']/body_height), -0.1),
-        'ymax':min(((location['y']+size['height'])/body_height), 1.1),
+        'xmin':max((location['x']-4/body_width), -0.1),
+        'xmax':min(((location['x']+8+size['width'])/body_width), 1.1),
+        'ymin':max((location['y']-4/body_height), -0.1),
+        'ymax':min(((location['y']+8+size['height'])/body_height), 1.1),
     }
 
 
@@ -62,7 +62,17 @@ def element_to_string(location, size, body_width, body_height, style_class):
     }
 
 def label_to_string(label, type, body_width, body_height):
-    return "<div class='overlay " + type + "' style='left: " + str(int((label[1]-(label[3]/2))*body_width)) + "; top: " + str(int((label[2]-(label[4]/2))*body_height)) + "; width: " + str(int((label[3])*body_width-4)) + "px; height: " + str(int((label[4])*body_height-4)) + "px;'><span class='label " + type + "'>" + type + "</span>&nbsp;</div>"
+    left = label[1]-(label[3]/2)
+    top = label[2]-(label[4]/2)
+
+    if left + label[3] > 1.1:
+        label[3] = 1.1 - left
+    if top + label[4] > 1.1:
+        label[4] = 1.1 - top
+
+    if left > 1.0 or top > 1.0:
+        return ""
+    return "<div class='overlay " + type + "' style='left: " + str(int(left*body_width)) + "; top: " + str(int(top*body_height)) + "; width: " + str(int((label[3])*body_width-4)) + "px; height: " + str(int((label[4])*body_height-4)) + "px;'><span class='label " + type + "'>" + type + "</span>&nbsp;</div>"
 
 def get_label(element, tag, body_width, body_height):
     location = element.location

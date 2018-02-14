@@ -54,7 +54,7 @@ def load_sql_data():
 
             # labels will be used to calculate anchors
             labels.append([width, height])
-            image_labels[image_id].append([float(row[0]), float(row[1]), float(row[2]), float(row[3]), int(row[4])-1])
+            image_labels[image_id].append([float(row[0]), float(row[1]), float(row[2]), float(row[3]), int(row[4])])
     except pymysql.InternalError as e:
         print (e)
 
@@ -66,12 +66,14 @@ def load_sql_data():
 def iou(ele1, ele2):
     return (min(ele1[0], ele2[0]) * min(ele1[1], ele2[1])) / ((max(ele1[0], ele2[0]) * max(ele1[1], ele2[1])))
 
+threshold = 0.0015
+
 def convert_label(label):
     return [int(label[4]),
             (label[0]+label[1])/2,
             (label[2] + label[3])/2,
-            label[1]-label[0],
-            label[3]-label[2]]
+            label[1]-label[0]+threshold,
+            label[3]-label[2]+threshold]
 
 def convert_labels(labels): #convert labels into YOLOv2 format
     return list(map(convert_label, labels))
@@ -87,7 +89,12 @@ def write_csv(image, dataset, labels):
     except IOError:
         file = open(data_file, 'w+')
 
-    file.write('/home/thomas/work/gui_image_identification/public/images/' +str(image)+".png\n")
+    sharc_output = True
+
+    if sharc_output:
+        file.write('/home/acp15tdw/gui/data/images/' +str(image)+".png\n")
+    else:
+        file.write('/home/thomas/work/gui_image_identification/public/images/' +str(image)+".png\n")
     file.close()
 
 if __name__ == '__main__':
@@ -107,9 +114,11 @@ if __name__ == '__main__':
     except pymysql.InternalError as e:
         print (e)
 
-    sql = "SELECT LabelTypeId, LabelName FROM label_types ORDER BY LabelTypeId" # this needs to only use verified labels when we have more data
+    sql = "SELECT LabelTypeId, LabelName FROM label_types WHERE LabelName!='hyperlink' ORDER BY LabelTypeId" # this needs to only use verified labels when we have more data
 
     label_names = []
+    label_nums = {}
+    label_count = 0
 
     try:
         # Execute the SQL command
@@ -118,6 +127,8 @@ if __name__ == '__main__':
         results = cursor.fetchall()
         for row in results:
             label_names.append(row[1])
+            label_nums[str(row[0])]=label_count
+            label_count = label_count+1
     except pymysql.InternalError as e:
         print (e)
 
@@ -132,8 +143,24 @@ if __name__ == '__main__':
         pass
 
     for image in data['image_labels']:
+        n = 0
+        while n < len(data['image_labels'][image]):
+            label = data['image_labels'][image][n]
+            if str(label[4]) in label_nums and label[0] <= 1 and label[2] <= 1:
+
+                if label[0] + label[1] > 1.1:
+                    label[1] = 1.1 - label[0]
+                if label[2] + label[3] > 1.1:
+                    label[3] = 1.1 - label[2]
+
+                label[4] = label_nums[str(label[4])]
+                n = n + 1
+            else:
+                del(data['image_labels'][image][n])
+
+    for image in data['image_labels']:
         if os.path.isfile('public/'+images[image][2]):
             if len(data['image_labels'][image]) > 0:
                 write_csv(image, images[image][1], convert_labels(data['image_labels'][image]))
             else:
-                print("Removed". images[image][2], "from dataset (zero labels)")
+                print("Removed", images[image][2], "from dataset (zero labels)")
