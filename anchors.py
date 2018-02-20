@@ -17,7 +17,7 @@ from scipy.cluster.vq import kmeans,vq
 image_segments = [13, 13]
 segment_size = [1.0/image_segments[0], 1.0/image_segments[1]]
 
-k_means_iterations = 100
+k_means_iterations = 1000
 
 n_anchors = 5
 
@@ -71,9 +71,58 @@ def load_sql_data():
             'image_labels':image_labels}
 
 
+def average_iou(centroids, labels):
+    average_iou = 0
+    count = 0
+    for label in labels:
+        best_iou = 0
+        for centroid in centroids:
+            difference = iou(centroid, label)
+
+            if (difference > best_iou):
+                best_iou = difference
+        count = count + 1
+        average_iou += best_iou
+
+    return average_iou/count
 
 def iou(ele1, ele2):
-    return (min(ele1[0], ele2[0]) * min(ele1[1], ele2[1])) / ((max(ele1[0], ele2[0]) * max(ele1[1], ele2[1])))
+    numerator = (min(ele1[0], ele2[0]) * min(ele1[1], ele2[1]))
+    denominator = ((max(ele1[0], ele2[0]) * max(ele1[1], ele2[1])))
+    return numerator / denominator
+
+random_padding = 0.001
+random_mult = 1 - random_padding
+
+def random_cluster_init(labels, kmeansplus=False):
+    global n_anchors
+    centroids = []
+
+
+    while len(centroids) < n_anchors:
+        if kmeansplus:
+
+            if len(centroids) == 0:
+                centroids.append(random.sample(list(labels), 1)[0])
+
+            distances = []
+            for i in range(len(labels)):
+                distances.append(0.0)
+                for j in centroids:
+                    distance = iou(labels[i], j)
+                    if distance > distances[i]:
+                        distances[i] = distance
+
+            furthest = 0
+
+            for i in range(len(labels)):
+                if distances[i] < distances[furthest]:
+                    furthest = i
+            centroids.append(labels[furthest])
+        else:
+            centroids.append([random.random()*random_mult + random_padding, random.random()*random_mult + random_padding])
+
+    return np.array(centroids)
 
 def gen_anchors():#k-means to generate bounding boxes
     global n_anchors, k_means_iterations
@@ -83,73 +132,82 @@ def gen_anchors():#k-means to generate bounding boxes
     #labels = np.array(labels)
 
     centroids = []
+    best_centroids = []
+    best_iou = 0
 
     n_samples = 300
 
-    centroids.append(random.sample(list(labels), 1)[0])
-
-    while len(centroids) < n_anchors:
-        distances = []
-        for i in range(len(labels)):
-            distances.append(0.0)
-            for j in centroids:
-                distance = iou(labels[i], j)
-                if distance > distances[i]:
-                    distances[i] = distance
-
-        furthest = 0
-
-        for i in range(len(labels)):
-            if distances[i] < distances[furthest]:
-                furthest = i
-
-        centroids.append(labels[furthest])
+    centroids = []
 
 
+    for centroid in centroids:
+        best_centroids.append(centroid)
+
+    best_iou = average_iou(centroids, labels)
+
+    max_gens = 1000
+
+    for iter in range(max_gens):
+        centroids = random_cluster_init(labels)
+
+        for iteration in range(k_means_iterations):
+            assignments = []
+
+            for i in range(n_anchors):
+                assignments.append([])
+
+            for label in labels:
+                min_distance = 0
+                cluster = 0
+                for i in range(len(centroids)):
+                    centroid = centroids[i]
+                    distance = iou(label, centroid)
+                    if distance > min_distance:
+                        min_distance = distance
+                        cluster = i
+
+                assignments[cluster].append(label)
+
+            new_centroids = []
+
+            changed = False
+
+            for a in assignments:
+                assignment = np.array(a)
+
+                centroid = [random.random()*random_mult + random_padding, random.random()*random_mult + random_padding]
+
+                if len(assignment) > 0:
+                    centroid = assignment.mean(axis=0)
 
 
+                new_centroids.append(centroid)
 
-    centroids = np.array(centroids)
+                if not (centroids == centroid).all(1).any():
+                    changed = True
 
-    for iteration in range(k_means_iterations):
-        assignments = []
+            centroids = new_centroids
 
-        for i in range(n_anchors):
-            assignments.append([])
+            if not changed:
+                break
 
-        for label in labels:
-            min_distance = 0
-            cluster = 0
-            for i in range(len(centroids)):
-                centroid = centroids[i]
-                distance = iou(label, centroid)
-                if distance > min_distance:
-                    min_distance = distance
-                    cluster = i
+        avg_iou = average_iou(centroids, labels)
 
-            assignments[cluster].append(label)
+        if avg_iou > best_iou:
+            best_iou = avg_iou
+            best_centroids = centroids
 
-        new_centroids = []
+            best_centroids = sorted(best_centroids, key=lambda centroid: centroid[0]-centroid[1])
 
-        changed = False
+            cluster_string = ""
+            for anchor in best_centroids:
+                cluster_string = cluster_string  + str(anchor[0]*13) + ',' + str(anchor[1]*13) + ",  "
 
-        for a in assignments:
-            assignment = np.array(a)
+            print()
+            print("best iou of", best_iou, "with clusters:",cluster_string )
 
-            centroid = assignment.mean(axis=0)
-
-            new_centroids.append(centroid)
-
-            if not (centroids == centroid).all(1).any():
-                changed = True
-
-        centroids = new_centroids
-
-        if not changed:
-            print("No changes after", iteration, "iterations")
-            break
-
-    return centroids
+        print("\rProgress: " + str(iter) + "/" + str(max_gens) + " [" + str(round(100*(iter/max_gens))) + "%]", end='')
+    return best_centroids
 
 def expand_anchor(anchor, x, y):
     offset_x = (segment_size[0] * (x + 0.5))
@@ -172,7 +230,7 @@ if __name__ == '__main__':
     anchor_string = ""
 
     for anchor in anchors:
-        anchor_string = anchor_string + str(round(anchor[0]*13, 4)) + ',' + str(round(anchor[1]*13, 4)) + ",  "
+        anchor_string = anchor_string + str(anchor[0]*13) + ',' + str(anchor[1]*13) + ",  "
 
     print(anchor_string)
 

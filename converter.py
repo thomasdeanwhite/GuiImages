@@ -33,7 +33,7 @@ cursor = db.cursor()
 
 def load_sql_data():
     global db, cursor
-    sql = "SELECT XMin, XMax, YMin, YMax, LabelType, ImageId, IsTruncated FROM labels" # this needs to only use verified labels when we have more data
+    sql = "SELECT XMin, XMax, YMin, YMax, LabelType, ImageId, IsTruncated FROM labels ORDER BY LabelId" # this needs to only use verified labels when we have more data
 
     labels = []
     image_labels = {}
@@ -66,14 +66,13 @@ def load_sql_data():
 def iou(ele1, ele2):
     return (min(ele1[0], ele2[0]) * min(ele1[1], ele2[1])) / ((max(ele1[0], ele2[0]) * max(ele1[1], ele2[1])))
 
-threshold = 0.0015
-
 def convert_label(label):
-    return [int(label[4]),
-            (label[0]+label[1])/2,
-            (label[2] + label[3])/2,
-            label[1]-label[0]+threshold,
-            label[3]-label[2]+threshold]
+    ret = [int(label[4]),
+     (label[0]+label[1])/2,
+     (label[2] + label[3])/2,
+     label[1]-label[0],
+     label[3]-label[2]]
+    return ret
 
 def convert_labels(labels): #convert labels into YOLOv2 format
     return list(map(convert_label, labels))
@@ -148,10 +147,10 @@ if __name__ == '__main__':
             label = data['image_labels'][image][n]
             if str(label[4]) in label_nums and label[0] <= 1 and label[2] <= 1:
 
-                if label[0] + label[1] > 1.1:
-                    label[1] = 1.1 - label[0]
-                if label[2] + label[3] > 1.1:
-                    label[3] = 1.1 - label[2]
+                if label[1] > 1.1:
+                    label[1] = 1.1
+                if label[3] > 1.1:
+                    label[3] = 1.1
 
                 label[4] = label_nums[str(label[4])]
                 n = n + 1
@@ -161,6 +160,7 @@ if __name__ == '__main__':
     for image in data['image_labels']:
         if os.path.isfile('public/'+images[image][2]):
             if len(data['image_labels'][image]) > 0:
-                write_csv(image, images[image][1], convert_labels(data['image_labels'][image]))
+                img = data['image_labels'][image]
+                write_csv(image, images[image][1], convert_labels(img))
             else:
                 print("Removed", images[image][2], "from dataset (zero labels)")

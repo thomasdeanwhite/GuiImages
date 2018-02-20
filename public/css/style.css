@@ -67,6 +67,10 @@ body {
     border-color: #336699;
 }
 
+.tabs {
+    border-color: #993366;
+}
+
 .label {
     margin-top: -30px;
     margin-left: -5px;
@@ -115,6 +119,10 @@ body {
 
 .tree .tree {
     background-color: #333300;
+}
+
+.tabs .tabs {
+    background-color: #993366;
 }
 
 #the-string {
