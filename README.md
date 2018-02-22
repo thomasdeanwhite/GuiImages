@@ -2,6 +2,8 @@
 
 A labeled dataset of images showing common GUI components.
 
+![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/training_data.png "Bounding boxes derived from a Java Swing Ripper")
+
 Currently there are 9 components supported:
 - Text Field
 - Button
