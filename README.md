@@ -4,7 +4,7 @@ A labeled dataset of images showing common GUI components.
 
 ![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/training_data.png "Bounding boxes derived from a Java Swing Ripper")
 
-Currently there are 9 components supported:
+Currently there are 10 components supported:
 - Text Field
 - Button
 - Combo Box
@@ -14,6 +14,7 @@ Currently there are 9 components supported:
 - Menu Item
 - Menu
 - Toggle Button (checkbox or radio button)
+- Tabs
 
 A model has been trained from this dataset to automatically identify GUI componenets in screenshots, here are a sample of identifications taken from the test set:
 
