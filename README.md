@@ -2,10 +2,6 @@
 
 A labeled dataset of images showing common GUI components.
 
-![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-128.jpg "Bounding boxes generated on model trained with dataset")
-![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-136.jpg "Bounding boxes generated on model trained with dataset")
-![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-187.jpg "Bounding boxes generated on model trained with dataset")
-
 Currently there are 9 components supported:
 - Text Field
 - Button
@@ -16,3 +12,9 @@ Currently there are 9 components supported:
 - Menu Item
 - Menu
 - Toggle Button (checkbox or radio button)
+
+A model has been trained from this dataset to automatically identify GUI componenets in screenshots, here are a sample of identifications:
+
+![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-128.jpg "Bounding boxes generated on model trained with dataset")
+![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-136.jpg "Bounding boxes generated on model trained with dataset")
+![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-187.jpg "Bounding boxes generated on model trained with dataset")
