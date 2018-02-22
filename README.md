@@ -15,7 +15,7 @@ Currently there are 9 components supported:
 - Menu
 - Toggle Button (checkbox or radio button)
 
-A model has been trained from this dataset to automatically identify GUI componenets in screenshots, here are a sample of identifications:
+A model has been trained from this dataset to automatically identify GUI componenets in screenshots, here are a sample of identifications taken from the test set:
 
 ![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-128.jpg "Bounding boxes generated on model trained with dataset")
 ![alt text](https://raw.githubusercontent.com/thomasdeanwhite/GuiImages/master/assets/pred-136.jpg "Bounding boxes generated on model trained with dataset")
