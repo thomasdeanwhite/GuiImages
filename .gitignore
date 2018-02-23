@@ -11,4 +11,5 @@ public/images/*
 public/labels/*
 public/*.txt
 public/*.names
+public/validation
 public/database.sql
