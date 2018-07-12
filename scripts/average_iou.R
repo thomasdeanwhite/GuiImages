@@ -23,6 +23,8 @@ filter_data <- function(data, percent=0.5){
 
 plot_data <- function(data, percent=0.7){
   
+
+  
   data <- data %>% mutate(Correct_Classifications=correct_classifications/total_classifications)
   data <- data %>% mutate(Intersection_Over_Union=average_iou)
   
@@ -30,16 +32,18 @@ plot_data <- function(data, percent=0.7){
   
   data = data %>% filter_data(percent)
   
-  p = data %>% 
-    ggplot(aes(x=as.factor(weight), y=Value, color=dataset, fill=dataset, group=interaction(dataset, weight))) +
-    geom_boxplot() +
-    #scale_x_log10() +
-    xlab("Training Iterations") +    
-    ylab("Observation") +
-    scale_x_discrete() +
-    scale_y_log10() +
-    theme_minimal() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  pearson = cor(method="pearson", data$average_iou, data$confidence)
+  
+  # p = data %>% 
+  #   ggplot(aes(x=as.factor(weight), y=Value, color=dataset, fill=dataset, group=interaction(dataset, weight))) +
+  #   geom_boxplot() +
+  #   #scale_x_log10() +
+  #   xlab("Training Iterations") +    
+  #   ylab("Observation") +
+  #   scale_x_discrete() +
+  #   scale_y_log10() +
+  #   theme_minimal() +
+  #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
   
   
   p = data %>%
@@ -47,16 +51,18 @@ plot_data <- function(data, percent=0.7){
     geom_point(alpha=0.05) +
     geom_smooth(method="loess", se=F) +
     #geom_smooth(method="lm", se=F) +
-    scale_x_log10() +
+    #scale_x_log10() +
     labs(x="Training Iteration",
-           y="Intersection Over Union") +
+           y="Intersection Over Union",
+         title=paste("IoU for grayscale images with confidence in top", (100*(1-percent)), "quantile")) +
     #scale_x_discrete() +
     #scale_y_log10() +
     theme_minimal() +
-    facet_wrap(~label) +
+    #facet_wrap(~dataset, scales = "free") +
+    ylim(0.0, 1.0) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))+
-    scale_fill_brewer(palette="Dark2") + 
-    scale_color_brewer(palette="Dark2")
+    scale_fill_brewer(palette="Set1") + 
+    scale_color_brewer(palette="Set1")
     
 
 
@@ -88,7 +94,7 @@ plot_data <- function(data, percent=0.7){
   
   print(p)
   
-  return(cor(method="pearson", data$average_iou, data$confidence))
+  return()
 }
 
 run_script <- function(directory, percent=0.7){

@@ -20,7 +20,6 @@ def load_widgets(dir):
             counter += 1
     return widgets, inverse
 
-
 def to_standard(ele):
     return [ele[4], ele[0]-ele[2]/2, ele[1]-ele[3]/2, ele[0]+ele[2]/2, ele[1]+ele[3]/2, ele[5]]
 
@@ -28,6 +27,7 @@ def to_standard(ele):
 def load_bb(files, widgets):
     bounding_boxes = {}
     test_data = []
+
     for file in files:
         widget = file.split(".")[2]
         weight = file.split("/")
@@ -40,11 +40,14 @@ def load_bb(files, widgets):
             widget_id = widgets[widget]
             for line in f:
                 box = line.strip().split(" ")
+                if len(box) <= 5:
+                    continue
                 image_id = box[0]
                 if not image_id in bounding_boxes[weight_id]:
                     bounding_boxes[weight_id][image_id] = []
                 if not image_id in test_data:
                     test_data.append(image_id)
+
                 bounding_boxes[weight_id][image_id].append(to_standard([
                     float(box[2]), float(box[3]), float(box[4]), float(box[5]), int(widget_id),
                     float(box[1])]))
@@ -83,19 +86,25 @@ def iou(ele1, ele2, reverse=False):
 
 
 def run_files(widgets, i_widgets, files, dataset):
+    print("Loading bb data for " + dataset)
+
     boxes, test_data = load_bb(files, widgets)
 
     test_boxes = {}
 
     confusion = {}
 
+    print("Loading real bb data for " + dataset)
     for image_id in test_data:
         path = sys.argv[2] + "/labels/" + str(image_id) + ".txt"
         test_boxes[str(image_id)] = load_bb_test(path)
 
     results = {}
 
+    print("Comparing")
+
     for weight in boxes:
+        print("\r(" + dataset + ") Weight: " + weight, end="")
         box = boxes[weight]
 
         for image_id in box:
@@ -123,20 +132,39 @@ def run_files(widgets, i_widgets, files, dataset):
                 if best_iou > 0:
                     if row[0] == best_img[0]:
                         results[comp_id][1] += 1
-                results[comp_id][0] += best_iou
-                results[comp_id][2] += 1
-                results[comp_id][3] += row[5]
+                    if not str(row[0]) in confusion:
+                        confusion[str(row[0])] = {}
+                    if not str(best_img[0]) in confusion[str(row[0])]:
+                        confusion[str(row[0])][str(best_img[0])] = 0
+                    confusion[str(row[0])][str(best_img[0])] += 1
+                    results[comp_id][0] += best_iou
+                    results[comp_id][2] += 1
+                    results[comp_id][3] += row[5]
             with open(sys.argv[2] + "/processed/output.csv", "a") as file:
                 for comp_id in results:
                     row = results[comp_id]
                     #average IOU
-                    row[0] /= row[2]
-                    row[3] /= row[2]
+                    if row[2] > 0:
+                        row[0] /= row[2]
+                        row[3] /= row[2]
 
                     file.write(str(weight) + "," + image_id + "," + i_widgets[comp_id] + "," + str(row[0]) + "," + str(row[1]) + "," + str(row[2]) + "," + str(row[3]) + "," + dataset + "\n")
-
+    print()
+    print(" " + "\t\t", end="")
+    for j in range(10):
+        print(i_widgets[str(j)] + "\t\t", end="")
+    print()
+    for i in range(10):
+        print(i_widgets[str(i)] + "\t\t", end="")
+        for j in range(10):
+            if i in confusion and str(j) in confusion[str(i)]:
+                print(str(round(confusion[str(i)][str(j)]/sum(confusion[str(i)].values()), 2)) + " \t",end="")
+            else:
+                print("0" + "\t\t", end="")
+        print()
 
 if __name__ == "__main__":
+    print("Loading Widgets")
     widgets, i_widgets = load_widgets(sys.argv[2])
 
     with open(sys.argv[2] + "/processed/output.csv", "w") as file:

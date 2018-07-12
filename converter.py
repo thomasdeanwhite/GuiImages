@@ -77,10 +77,7 @@ def convert_label(label):
 def convert_labels(labels): #convert labels into YOLOv2 format
     return list(map(convert_label, labels))
 
-def write_csv(image, dataset, labels):
-    np.savetxt('public/labels/' + str(image) + '.txt', labels,
-               delimiter=' ', fmt='%i %f %f %f %f')
-
+def write_dataset(image, dataset):
     data_file = 'public/' + dataset + ".txt"
 
     try:
@@ -91,15 +88,23 @@ def write_csv(image, dataset, labels):
     sharc_output = True
 
     if sharc_output:
-        file.write('/home/acp15tdw/gui/data/images/' +str(image)+".png\n")
+        file.write('/data/acp15tdw/data/images/' +str(image)+".png\n")
     else:
         file.write('/home/thomas/work/gui_image_identification/public/images/' +str(image)+".png\n")
     file.close()
 
+def write_csv(image, dataset, labels):
+    np.savetxt('public/labels/' + str(image) + '.txt', labels,
+               delimiter=' ', fmt='%i %f %f %f %f')
+
+    write_dataset(image, dataset)
+
+
+
 if __name__ == '__main__':
     data = load_sql_data()
 
-    sql = "SELECT ImageId, Subset, File FROM images" # this needs to only use verified labels when we have more data
+    sql = "SELECT ImageId, Subset, File, Source FROM images WHERE Dataset != 'web'" # this needs to only use verified labels when we have more data
 
     images = {}
 
@@ -138,6 +143,9 @@ if __name__ == '__main__':
         os.remove('public/train.txt')
         os.remove('public/test.txt')
         os.remove('public/validate.txt')
+        os.remove('public/train-balanced.txt')
+        os.remove('public/test-balanced.txt')
+        os.remove('public/validate-balanced.txt')
     except OSError:
         pass
 
@@ -157,10 +165,52 @@ if __name__ == '__main__':
             else:
                 del(data['image_labels'][image][n])
 
+    themes = {}
+
     for image in data['image_labels']:
-        if os.path.isfile('public/'+images[image][2]):
-            if len(data['image_labels'][image]) > 0:
-                img = data['image_labels'][image]
-                write_csv(image, images[image][1], convert_labels(img))
-            else:
-                print("Removed", images[image][2], "from dataset (zero labels)")
+        if image in images:
+            if os.path.isfile('public/'+images[image][2]):
+                if len(data['image_labels'][image]) > 0:
+                    img = data['image_labels'][image]
+                    img_theme = images[image][3]
+                    img_file = images[image][2]
+
+                    if img_theme.find("swing_generated") != -1:
+                        theme_elements = img_theme.split("-jframe-")
+                        theme = theme_elements[1]
+
+                        if not theme in themes:
+                            themes[theme] = []
+
+                        themes[theme].append(image)
+
+    min_theme_files = 0
+
+    for t in themes:
+
+        random.shuffle(themes[t])
+
+        leng = len(themes[t])
+        if min_theme_files == 0 or leng < min_theme_files:
+            min_theme_files = leng
+
+    print("Balancing around", min_theme_files, "themes (", len(themes), "themes", ")")
+
+    for t in themes:
+        for image in themes[t][:min_theme_files]:
+            if image in images:
+                if os.path.isfile('public/'+images[image][2]):
+                    if len(data['image_labels'][image]) > 0:
+                        img = data['image_labels'][image]
+                        write_dataset(image, images[image][1] + "-balanced")
+
+
+
+    for image in data['image_labels']:
+        if image in images:
+            if os.path.isfile('public/'+images[image][2]):
+                if len(data['image_labels'][image]) > 0:
+                    img = data['image_labels'][image]
+                    write_csv(image, images[image][1], convert_labels(img))
+                else:
+                    print("Removed", images[image][2], "from dataset (zero labels)")
