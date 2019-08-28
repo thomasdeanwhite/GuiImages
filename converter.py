@@ -175,7 +175,7 @@ if __name__ == '__main__':
                     img_theme = images[image][3]
                     img_file = images[image][2]
 
-                    if img_theme.find("swing_generated") != -1:
+                    if img_theme.find("synthetic ") != -1:
                         theme_elements = img_theme.split("-jframe-")
                         theme = theme_elements[1]
 

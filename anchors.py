@@ -197,7 +197,7 @@ def gen_anchors():#k-means to generate bounding boxes
             best_iou = avg_iou
             best_centroids = centroids
 
-            best_centroids = sorted(best_centroids, key=lambda centroid: centroid[0]-centroid[1])
+            best_centroids = sorted(best_centroids, key=lambda centroid: -centroid[0]*centroid[1])
 
             cluster_string = ""
             for anchor in best_centroids:
