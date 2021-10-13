@@ -1,0 +1,16 @@
+/*.png
+*/*.png
+__*
+corpus
+/*.log
+*.iml
+.idea
+*.*~
+config.py
+public/images/*
+public/labels/*
+public/*.txt
+public/*.names
+public/validation
+public/database.sql
+data.tar.xz

@@ -1,0 +1,131 @@
+/*
+CLASS_MAP.put(JButton.class, "button");
+        CLASS_MAP.put(JTextField.class, "text_field");
+        CLASS_MAP.put(JTextArea.class, "text_field");
+        CLASS_MAP.put(JComboBox.class, "combo_box");
+        CLASS_MAP.put(JToggleButton.class, "toggle_button");
+        CLASS_MAP.put(JMenu.class, "menu");
+        CLASS_MAP.put(JMenuItem.class, "menu_item");
+ */
+
+
+body {
+    background-color: #FFFFFF;
+    margin: 0px;
+    padding: 0px;
+}
+
+.overlay {
+    border: 4px solid;
+    position: absolute;
+    z-index: 1000;
+    margin-left: -4px;
+    margin-top: -4px;
+}
+
+.button {
+    border-color: #FF0000;
+}
+
+.hyperlink {
+    border-color: #0000FF;
+}
+
+.text_field{
+    border-color: #00FF00;
+}
+
+.hyperlink {
+    border-color: #0000FF;
+}
+
+.combo_box{
+    border-color: #999999;
+}
+
+.toggle_button{
+    border-color: #00FFFF;
+}
+
+.menu {
+    border-color: #FF00FF;
+}
+
+.menu_item {
+    border-color: #000000;
+}
+
+.list {
+    border-color: #333333;
+}
+
+.tree {
+    border-color: #333300;
+}
+
+.scroll_bar {
+    border-color: #336699;
+}
+
+.tabs {
+    border-color: #993366;
+}
+
+.label {
+    margin-top: -30px;
+    margin-left: -5px;
+    color: white;
+    position: absolute;
+    padding: 5px;
+    border-radius: 5px;
+}
+
+
+.button .button {
+    background-color: #FF0000;
+}
+
+.hyperlink .hyperlink {
+    background-color: #0000FF;
+}
+
+.text_field .text_field {
+    background-color: #00FF00;
+}
+
+.combo_box .combo_box {
+    background-color: #999999;
+}
+
+.toggle_button .toggle_button {
+    background-color: #00FFFF;
+}
+
+.menu .menu {
+    background-color: #FF00FF;
+}
+
+.menu_item .menu_item {
+    background-color: #000000;
+}
+
+.scroll_bar .scroll_bar {
+    background-color: #336699;
+}
+
+.list .list {
+    background-color: #333333;
+}
+
+.tree .tree {
+    background-color: #333300;
+}
+
+.tabs .tabs {
+    background-color: #993366;
+}
+
+#the-string {
+    display: none;
+}
+
